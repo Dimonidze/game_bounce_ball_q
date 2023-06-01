@@ -55,7 +55,7 @@ def draw_polygon_alpha(surface, color, points):
 
 
 def message(surface: pygame.Surface, msg: str, color: tuple[int, int, int, int] = LIGHT_GRAY,
-            collide: bool = False, collide_box: bool = False,
+            collide: bool = False, collide_box: bool = False, collide_keyboard: bool = False,
             point: Vec2d | tuple = Vec2d(0, 0), align='center', font='ComicSansMs', font_size=35) -> pygame.Rect:
     font = pygame.font.SysFont(font, font_size)
     mesg = font.render(msg, True, color)
@@ -68,13 +68,15 @@ def message(surface: pygame.Surface, msg: str, color: tuple[int, int, int, int] 
 
     if collide and msg_rect.collidepoint(pygame.mouse.get_pos()):
         mesg = font.render(msg, True, SCARLET)
+    if collide and collide_keyboard:
+        mesg = font.render(msg, True, SCARLET)
     if collide_box:
         m_c_x, m_c_y = msg_rect.center
         points = ((m_c_x - 18, m_c_y + 18), (m_c_x - 18, m_c_y - 18),
                   (m_c_x + 18, m_c_y - 18), (m_c_x + 18, m_c_y + 18))
         pygame.draw.lines(surface, WHITE, True, points)
         c_b = pygame.Rect(m_c_x - 17, m_c_y - 17, 35, 35)  # collide box
-        if collide_box and msg_rect.collidepoint(pygame.mouse.get_pos()):
+        if msg_rect.collidepoint(pygame.mouse.get_pos()):
             surface.fill(BRICK_RED, c_b)
 
     surface.blit(mesg, msg_rect)
@@ -83,6 +85,7 @@ def message(surface: pygame.Surface, msg: str, color: tuple[int, int, int, int] 
 
 class Player:
     """init and draw player"""
+
     def __init__(self, space: pymunk.Space, block_size: int, start_position: pymunk.Vec2d | tuple = Vec2d(0, 0)):
         self.space = space
         self.b0 = self.space.static_body
@@ -93,9 +96,9 @@ class Player:
         self.density = 0.5
         self.friction = 0.999
         self.elasticity = 0.5
-        self.radius = block_size/5
+        self.radius = block_size / 5
 
-        self.impulse = 0, -150000 * (2/5)
+        self.impulse = 0, -150000 * (2 / 5)
         self.velocity = 35
 
         self.camera = pygame.Vector2((0, 0))
@@ -121,6 +124,7 @@ class Player:
                 if len(self.player.shapes_collide(s).points) != 0:
                     return True
             return False
+
         if j():
             if direction == 0:
                 """key not pressed"""
@@ -137,15 +141,15 @@ class Player:
                 self.fly = True
 
         elif self.fly:
-            self.motor.rate = -self.motor.rate/2
+            self.motor.rate = -self.motor.rate / 2
             self.fly = False
         else:
             if direction == 1:
                 """pressed right arrow"""
-                self.body.apply_impulse_at_world_point((self.velocity*25, 0), self.body.position)
+                self.body.apply_impulse_at_world_point((self.velocity * 25, 0), self.body.position)
             elif direction == -1:
                 """pressed left arrow"""
-                self.body.apply_impulse_at_world_point((-self.velocity*25, 0), self.body.position)
+                self.body.apply_impulse_at_world_point((-self.velocity * 25, 0), self.body.position)
 
     def camera_moving(self, surface: pygame.Surface, camera_layer: pygame.Surface):
         """the camera following player"""
@@ -157,9 +161,9 @@ class Player:
             if pressed[pygame.K_s]: camera_move += (0, -1)
             if pressed[pygame.K_d]: camera_move += (-1, 0)
             if camera_move.length() > 0: camera_move.normalize_ip()
-            self.camera += camera_move*(self.radius/3)
+            self.camera += camera_move * (self.radius / 3)
         else:
-            self.camera = (-self.body.position[0] + App.w/2, -self.body.position[1] + App.h/2)
+            self.camera = (-self.body.position[0] + App.w / 2, -self.body.position[1] + App.h / 2)
         surface.blit(camera_layer, self.camera)
 
 
@@ -245,21 +249,21 @@ class Map:
         x = int(point[0])
         y = int(point[1])
         if Map.map[y][x] == '@':
-            self.player.start_position = (x * self.block_size + self.block_size/2,
-                                          y * self.block_size + self.block_size/2)
-            self.check_point = (x * self.block_size + self.block_size/2,
-                                y * self.block_size + self.block_size/2)
+            self.player.start_position = (x * self.block_size + self.block_size / 2,
+                                          y * self.block_size + self.block_size / 2)
+            self.check_point = (x * self.block_size + self.block_size / 2,
+                                y * self.block_size + self.block_size / 2)
             self.player.draw()
         if Map.map[y][x] == 'c':
             self.exit_point = (x * self.block_size, y * self.block_size)
         if Map.map[y][x] == 'w':
             self.spikes_points.append((x * self.block_size, y * self.block_size))
         if Map.map[y][x] == 's':
-            self.check_points_list.append((x * self.block_size + self.block_size/2,
-                                          y * self.block_size + self.block_size-15))
+            self.check_points_list.append((x * self.block_size + self.block_size / 2,
+                                           y * self.block_size + self.block_size - 15))
         if Map.map[y][x] == '$':
-            self.bonus_list.append((x * self.block_size + self.block_size/2,
-                                    y * self.block_size + self.block_size-15))
+            self.bonus_list.append((x * self.block_size + self.block_size / 2,
+                                    y * self.block_size + self.block_size - 15))
         if Map.map[y][x] == '-':
             self.boxes.append((x * self.block_size, y * self.block_size))
         return True if Map.map[y][x] == '#' else False
@@ -288,8 +292,8 @@ class Map:
 
         v1, v2 = self.exit_point
         vertices = (
-            (v1+3, v2), (v1+self.block_size-25, v2+10),
-            (v1+3, v2+self.block_size), (v1+self.block_size-25, v2+self.block_size)
+            (v1 + 3, v2), (v1 + self.block_size - 25, v2 + 10),
+            (v1 + 3, v2 + self.block_size), (v1 + self.block_size - 25, v2 + self.block_size)
         )
         self.exit_shape = pymunk.Poly(self.b0, vertices, radius=0)
         self.exit_shape.color = BLUE
@@ -301,9 +305,9 @@ class Map:
         for s in self.spikes_points:
             x, y = s
             vertices = (
-                (x, y+self.block_size),
-                (x+self.block_size/2, y+self.block_size/3),
-                (x+self.block_size, y + self.block_size),
+                (x, y + self.block_size),
+                (x + self.block_size / 2, y + self.block_size / 3),
+                (x + self.block_size, y + self.block_size),
             )
             shape = pymunk.Poly(self.b0, vertices, radius=1)
             shape.color = GRAY
@@ -397,17 +401,29 @@ class App:
         }
 
     def main_menu(self):
+        box_number = -1
         while self.main_menu_run:
             self.surface.fill(BLACK)
             message(self.surface, f'Текущая карта: {self.map.current_map}',
                     color=BRICK_RED, point=Vec2d(0, 0), align=('topleft'), font_size=24)
-            message(self.surface, 'Bounce Ball Rare', color=BRICK_RED, point=(self.w/2, self.h/3))
+            message(self.surface, 'Bounce Ball Rare', color=BRICK_RED, point=(self.w / 2, self.h / 3))
+            game_start = message(self.surface, 'продолжить' if self.pause else 'начать игру',
+                                 point=(self.w / 2, self.h / 2), collide=True,
+                                 collide_keyboard=True if box_number == 0 else False)
+            map_select = message(self.surface, 'выбрать карту', point=(self.w / 2, self.h / 2 + 1*50),
+                                 collide=True, collide_keyboard=True if box_number == 1 else False)
             if self.pause:
-                game_start = message(self.surface, 'продолжить', point=(self.w/2, self.h/2), collide=True)
-            else:
-                game_start = message(self.surface, 'начать игру', point=(self.w/2, self.h/2), collide=True)
-            map_select = message(self.surface, 'выбрать карту', point=(self.w/2, self.h/2 + 50), collide=True)
-            exit_game = message(self.surface, 'выйти из игры', point=(self.w/2, self.h/2 + 100), collide=True)
+                # restart = message(self.surface, 'перезапустить уровень', point=(self.w / 2, self.h / 2 + 2*50),
+                #                     collide=True, collide_keyboard=True if box_number == 2 else False)
+                pass
+            exit_game = message(self.surface, 'выйти из игры', point=(self.w / 2, self.h / 2 + 2*50),
+                                collide=True, collide_keyboard=True if box_number == 2 else False)
+
+            mp = pygame.mouse.get_pos()
+            if (game_start.collidepoint(mp) or
+                    map_select.collidepoint(mp) or
+                    exit_game.collidepoint(mp)):
+                box_number = -1
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -425,18 +441,41 @@ class App:
                         self.running = False
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_RETURN:
-                        self.running = True
-                        self.run()
+                        if box_number == 0 or box_number == -1:
+                            self.running = True
+                            self.pause = False
+                            if not self.pause: self.run()
+                        elif box_number == 1:
+                            self.map_selection()
+                        elif box_number == 2:
+                            self.main_menu_run = False
+                            self.running = False
+                    if event.key == pygame.K_UP:
+                        if box_number == -1:
+                            box_number = 2
+                        elif box_number == 0:
+                            pass
+                        else:
+                            box_number -= 1
+                    if event.key == pygame.K_DOWN:
+                        if box_number == -1:
+                            box_number = 0
+                        elif box_number == 2:
+                            pass
+                        else:
+                            box_number += 1
+
             pygame.display.flip()
             pass
 
     def map_selection(self):
         m_s = True
         page = 0
+        box_number = -1
         while m_s:
             self.surface.fill(BLACK)
             message(self.surface, f'Текущая карта: {self.map.current_map}',
-                    color=BRICK_RED, point=Vec2d(0, 0), align=('topleft'), font_size=24)
+                    color=BRICK_RED, point=Vec2d(0, 0), align='topleft', font_size=24)
             message(self.surface, 'Bounce Ball Rare', color=BRICK_RED, point=(self.w / 2, self.h / 3))
             y = 0  # number of map on page
             count_of_page = int(len(self.map.map_list) / 4) + len(self.map.map_list) % 4
@@ -445,28 +484,58 @@ class App:
             if len(self.map.map_list) <= 5:
                 for m in self.map.map_list:
                     map_rect_list.append(message(self.surface, m, color=LIGHT_GRAY,
-                                                 point=(self.w / 2, self.h / 2 + y * 50), collide=True))
+                                                 point=(self.w / 2, self.h / 2 + y * 50),
+                                                 collide=True, collide_keyboard=True if box_number == y else False))
                     y += 1
             else:
                 for i in range(count_of_page):
-                    page_rect_list.append(message(self.surface, str(i+1), color=WHITE,
-                                                  point=((self.w/2 - count_of_page/2*50+25) + i*60, self.h - 50),
+                    page_rect_list.append(message(self.surface, str(i + 1), color=WHITE,
+                                                  point=(
+                                                  (self.w / 2 - count_of_page / 2 * 50 + 25) + i * 60, self.h - 50),
                                                   collide_box=True))
                 p = page * 4
-                if 4+p > len(self.map.map_list):
-                    for m in range(0, abs(len(self.map.map_list) - 4*(count_of_page-1))):
-                        map_rect_list.append(message(self.surface, self.map.map_list[m+p], color=LIGHT_GRAY,
-                                                     point=(self.w/2, self.h/2 + m*50), collide=True))
+                if 4 + p > len(self.map.map_list):
+                    for m in range(0, abs(len(self.map.map_list) - 4 * (count_of_page - 1))):
+                        map_rect_list.append(message(self.surface, self.map.map_list[m + p], color=LIGHT_GRAY,
+                                                     point=(self.w / 2, self.h / 2 + m * 50),
+                                                     collide=True, collide_keyboard=True if box_number == m else False))
                 else:
                     for m in range(0, 4):
-                        map_rect_list.append(message(self.surface, self.map.map_list[m+p], color=LIGHT_GRAY,
-                                                     point=(self.w/2, self.h/2 + m*50), collide=True))
+                        map_rect_list.append(message(self.surface, self.map.map_list[m + p], color=LIGHT_GRAY,
+                                                     point=(self.w / 2, self.h / 2 + m * 50),
+                                                     collide=True, collide_keyboard=True if box_number == m else False))
+
+            for m in map_rect_list:
+                if m.collidepoint(pygame.mouse.get_pos()):
+                    box_number = -1
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     m_s = False
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
+                        m_s = False
+                    if event.key == pygame.K_UP:
+                        if box_number == -1:
+                            box_number = map_rect_list.index(map_rect_list[-1])
+                        elif box_number == 0:
+                            pass
+                        else:
+                            box_number -= 1
+                    if event.key == pygame.K_DOWN:
+                        if box_number == -1:
+                            box_number = 0
+                        elif box_number == map_rect_list.index(map_rect_list[-1]):
+                            pass
+                        else:
+                            box_number += 1
+                    if event.key == pygame.K_RETURN and box_number != -1:
+                        self.map.current_map = self.map.map_list[map_rect_list.index(map_rect_list[box_number])]
+                        self.map.load_map(self.map.map_list[map_rect_list.index(map_rect_list[box_number])])
+                        self.map.draw_map()
+
+                        self.camera_layer = pygame.Surface(self.map.size)
+                        self.draw_option = pymunk.pygame_util.DrawOptions(self.camera_layer)
                         m_s = False
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     for r in map_rect_list:
@@ -534,15 +603,28 @@ class App:
     def endgame_screen(self):
         endgame = True
         msg_boxes = []
+        box_number = -1
         while endgame:
             self.surface.fill(BLACK)
-            message(self.surface, f'Уровень {self.map.current_map} завершён!', BRICK_RED, point=(self.w/2, self.h/3))
-            msg_boxes.append(message(self.surface, 'ПРОДОЛЖИТЬ', LIGHT_GRAY,
-                                     point=(self.w/2, self.h/2 + 0*50), collide=True))
+            message(self.surface, f'Уровень {self.map.current_map} завершён!', BRICK_RED,
+                    point=(self.w / 2, self.h / 3))
+            if self.map.map_list[-1] == self.map.current_map:
+                message(self.surface, 'Вы прошли игру! Ура=)', SCARLET, point=(self.w / 2, self.h / 3 + 50))
+                msg_boxes.append('END')
+            else:
+                msg_boxes.append(message(self.surface, 'ПРОДОЛЖИТЬ', LIGHT_GRAY,
+                                         point=(self.w / 2, self.h / 2 + 0 * 50), collide=True,
+                                         collide_keyboard=True if box_number == 0 else False))
             msg_boxes.append(message(self.surface, 'ВЫБРАТЬ КАРТУ', LIGHT_GRAY,
-                                     point=(self.w/2, self.h/2 + 1*50), collide=True))
+                                     point=(self.w / 2, self.h / 2 + 1 * 50), collide=True,
+                                     collide_keyboard=True if box_number == 1 else False))
             msg_boxes.append(message(self.surface, 'ВЫЙТИ', LIGHT_GRAY,
-                                     point=(self.w/2, self.h/2 + 2*50), collide=True))
+                                     point=(self.w / 2, self.h / 2 + 2 * 50), collide=True,
+                                     collide_keyboard=True if box_number == 2 else False))
+
+            for b in msg_boxes:
+                if b.collidepoint(pygame.mouse.get_pos()):
+                    box_number = -1
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -551,19 +633,43 @@ class App:
                     self.running = False
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_RETURN:
-                        self.map.current_map = self.map.map_list[self.map.map_list.index(self.map.current_map) + 1]
-                        self.map.load_map(self.map.current_map)
-                        self.map.draw_map()
+                        if msg_boxes[0] != 'END' and (box_number == -1 or box_number == 0):
+                            self.map.current_map = self.map.map_list[self.map.map_list.index(self.map.current_map) + 1]
+                            self.map.load_map(self.map.current_map)
+                            self.map.draw_map()
 
-                        self.camera_layer = pygame.Surface(self.map.size)
-                        self.draw_option = pymunk.pygame_util.DrawOptions(self.camera_layer)
+                            self.camera_layer = pygame.Surface(self.map.size)
+                            self.draw_option = pymunk.pygame_util.DrawOptions(self.camera_layer)
 
-                        endgame = False
-                        self.main_menu_run = False
-                        self.running = True
+                            endgame = False
+                            self.main_menu_run = False
+                            self.running = True
+                        if box_number == 1:
+                            endgame = False
+                            self.main_menu_run = False
+                            self.map_selection()
+                            self.running = True
+                        if box_number == 2:
+                            endgame = False
+                            self.main_menu_run = True
+                            self.running = False
+                    if event.key == pygame.K_UP:
+                        if box_number == -1:
+                            box_number = msg_boxes.index(msg_boxes[-1])
+                        elif box_number == 0:
+                            pass
+                        else:
+                            box_number -= 1
+                    if event.key == pygame.K_DOWN:
+                        if box_number == -1:
+                            box_number = 0
+                        elif box_number == msg_boxes.index(msg_boxes[-1]):
+                            pass
+                        else:
+                            box_number += 1
                 if event.type == pygame.MOUSEBUTTONDOWN:
-                    if msg_boxes[0].collidepoint(event.pos):
-                        self.map.current_map = self.map.map_list[self.map.map_list.index(self.map.current_map)+1]
+                    if msg_boxes[0] != 'END' and msg_boxes[0].collidepoint(event.pos):
+                        self.map.current_map = self.map.map_list[self.map.map_list.index(self.map.current_map) + 1]
                         self.map.load_map(self.map.current_map)
                         self.map.draw_map()
 
