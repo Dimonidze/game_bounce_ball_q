@@ -1,11 +1,22 @@
 import fnmatch
 import os
 import re
+import subprocess
+import sys
 
-import pygame
-import pymunk
-from pymunk.vec2d import Vec2d
-import pymunk.pygame_util
+try:
+    import pygame
+except ImportError:
+    subprocess.run([sys.executable, '-m', 'pip', 'install', '--user', 'pygame'])
+    import pygame
+try:
+    import pymunk
+except ImportError:
+    subprocess.run([sys.executable, '-m', 'pip', 'install', '--user', 'pymunk'])
+    import pymunk
+finally:
+    from pymunk.vec2d import Vec2d
+    import pymunk.pygame_util
 
 # Colors
 BRICK_RED = (170, 74, 68, 0)
@@ -18,9 +29,10 @@ BLACK = (0, 0, 0, 0)
 BLUE = (0, 0, 255, 0)
 SCARLET = (187, 0, 0, 0)
 GOLD = (255, 215, 0, 0)
+GREEN = (50, 205, 50, 0)
 
 
-def alpha_sort(unsorted_list: list) -> list:
+def alpha_sort_list(unsorted_list: list) -> list:
     def try_int(symbols):
         try:
             s = float(symbols)
@@ -117,10 +129,17 @@ class Player:
         self.player.elasticity = self.elasticity
         self.player.color = SCARLET
         self.space.add(self.body, self.player)
+        self.player.filter = pymunk.ShapeFilter(group=1)
 
-    def control(self, direction):
+    def control(self, direction, map_c):
         def j():
-            for s in Map.shapes:
+            for s in map_c.shapes:
+                if len(self.player.shapes_collide(s).points) != 0:
+                    return True
+            for s in map_c.blue_wall_block:
+                if len(self.player.shapes_collide(s).points) != 0:
+                    return True
+            for s in map_c.red_wall_block:
                 if len(self.player.shapes_collide(s).points) != 0:
                     return True
             return False
@@ -200,13 +219,21 @@ class Map:
 
         self.boxes = []
 
+        self.blue_wall = []
+        self.blue_wall_block = []
+        self.blue_marker = []
+
+        self.red_wall = []
+        self.red_wall_block = []
+        self.red_marker = []
+
     def load_map_list(self):
         file_list = os.listdir('./maps/')
         pattern = 'map_*.bin'
         for entry in file_list:
             if fnmatch.fnmatch(entry, pattern):
                 self.map_list.append(entry)
-        self.map_list = alpha_sort(self.map_list)
+        self.map_list = alpha_sort_list(self.map_list)
 
     def clear(self):
         for i in self.space.shapes:
@@ -219,6 +246,11 @@ class Map:
         self.spikes_points = []
         self.spikes_shapes = []
         self.boxes = []
+        self.blue_marker = []
+        self.blue_wall = []
+        self.red_marker = []
+        self.red_wall = []
+        self.player.player.filter = pymunk.ShapeFilter(group=1)
 
         self.level_score = 0
 
@@ -237,14 +269,18 @@ class Map:
     def wall_sample_func(self, point: tuple) -> bool:
         """
         отрисовка блоков по символьной карте
-        #-стена
-        .-пространство
-        @-старт
-        $-бонус
-        s-сохранение
-        w-шипы
-        c-финиш
-        --стена без коллизии
+        # — стена
+        . — пространство
+        @ — старт
+        $ — бонус
+        s — сохранение
+        w — шипы
+        c — финиш
+        - — стена без коллизии
+        b — синий маркер
+        B — синяя стена
+        r — красный маркер
+        R — красная стена
         """
         x = int(point[0])
         y = int(point[1])
@@ -266,6 +302,16 @@ class Map:
                                     y * self.block_size + self.block_size - 15))
         if Map.map[y][x] == '-':
             self.boxes.append((x * self.block_size, y * self.block_size))
+        if Map.map[y][x] == 'b':
+            self.blue_marker.append((x * self.block_size + self.block_size / 2,
+                                    y * self.block_size + self.block_size - 15))
+        if Map.map[y][x] == 'B':
+            self.blue_wall.append((x * self.block_size, y * self.block_size))
+        if Map.map[y][x] == 'r':
+            self.red_marker.append((x * self.block_size + self.block_size / 2,
+                                    y * self.block_size + self.block_size - 15))
+        if Map.map[y][x] == 'R':
+            self.red_wall.append((x * self.block_size, y * self.block_size))
         return True if Map.map[y][x] == '#' else False
 
     def draw_map(self):
@@ -315,6 +361,8 @@ class Map:
             self.spikes_shapes.append(shape)
             self.space.add(shape)
 
+        self.color_wall_draw()
+
     def map_end(self) -> bool:
         return True if len(self.player.player.shapes_collide(self.exit_shape).points) != 0 else False
 
@@ -350,17 +398,67 @@ class Map:
             rect = pygame.Rect(vertices[0], vertices[1], self.block_size, self.block_size)
             pygame.draw.rect(surface, DARK_GRAY, rect, 2)
 
+    def marker_draw(self, surface: pygame.Surface):
+        for m in self.blue_marker:
+            pygame.draw.circle(surface, BLUE, m, self.player.radius)
+        for m in self.red_marker:
+            pygame.draw.circle(surface, SCARLET, m, self.player.radius)
+
+    def marker_collide(self):
+        for m in self.blue_marker:
+            if self.player.player.point_query(m).distance < 1:
+                self.blue_marker.remove(m)
+                self.player.player.color = BLUE
+                self.player.player.filter = pymunk.ShapeFilter(group=2)
+                print(self.player.player.filter)
+
+        for m in self.red_marker:
+            if self.player.player.point_query(m).distance < 1:
+                self.blue_marker.remove(m)
+                self.player.player.color = BLUE
+                self.player.player.filter = pymunk.ShapeFilter(group=1)
+
+    def color_wall_draw(self):
+        for w in self.blue_wall:
+            x, y = w[0], w[1]
+            b = self.block_size
+            vertices = ((x, y),     (x + b, y),
+                        (x, y + b), (x + b, y + b))
+            # body = pymunk.Body()
+            rs = pymunk.Poly(self.b0, vertices)
+            # rs.density = 0.01
+            rs.friction = 0.1
+            rs.elasticity = 0.999
+            rs.color = BLUE
+            rs.filter = pymunk.ShapeFilter(group=2)
+            self.space.add(rs)
+            self.blue_wall_block.append(rs)
+        for w in self.red_wall:
+            x, y = w[0], w[1]
+            b = self.block_size
+            vertices = ((x, y), (x + b, y),
+                        (x, y + b), (x + b, y + b))
+            # body = pymunk.Body()
+            rs = pymunk.Poly(self.b0, vertices)
+            # rs.density = 0.01
+            rs.friction = 0.1
+            rs.elasticity = 0.999
+            rs.color = SCARLET
+            rs.filter = pymunk.ShapeFilter(group=1)
+            self.space.add(rs)
+            self.red_wall_block.append(rs)
+
 
 class App:
     screen_size = w, h = (800, 600)
-    caption = 'bounce ball'
+    caption = 'BounceBall Q'
 
     def __init__(self):
         """Initializing pygame, pymunk set main variables"""
         pygame.init()
-        pygame.display.set_caption(App.caption)
+        pygame.display.set_caption(self.caption)
         self.surface = pygame.display.set_mode(App.screen_size, pygame.DOUBLEBUF, 32, vsync=True)
-        self.camera_layer = pygame.Surface((2500, 2500), pygame.DOUBLEBUF)
+        self.camera_layer = pygame.Surface((4000, 4000), pygame.DOUBLEBUF)
         self.draw_option = pymunk.pygame_util.DrawOptions(self.camera_layer)
         self.space = pymunk.Space()
 
@@ -373,7 +471,7 @@ class App:
         self.map.load_map(self.map.map_list[0])
 
         self.space.gravity = (0, 900)
-        self.fps = 30
+        self.fps = 24
         self.fps_counter = False
         self.clock = pygame.time.Clock()
 
@@ -406,7 +504,7 @@ class App:
             self.surface.fill(BLACK)
             message(self.surface, f'Текущая карта: {self.map.current_map}',
                     color=BRICK_RED, point=Vec2d(0, 0), align=('topleft'), font_size=24)
-            message(self.surface, 'Bounce Ball Rare', color=BRICK_RED, point=(self.w / 2, self.h / 3))
+            message(self.surface, f'{self.caption}', color=BRICK_RED, point=(self.w / 2, self.h / 3))
             game_start = message(self.surface, 'продолжить' if self.pause else 'начать игру',
                                  point=(self.w / 2, self.h / 2), collide=True,
                                  collide_keyboard=True if box_number == 0 else False)
@@ -492,6 +590,11 @@ class App:
             message(self.surface, 'Bounce Ball Rare', color=BRICK_RED, point=(self.w / 2, self.h / 3))
             y = 0  # number of map on page
             count_of_page = int(len(self.map.map_list) / 4) + len(self.map.map_list) % 4
+            # print(f'len(self.map.map_list) / 4 = {len(self.map.map_list) / 4}')
+            # print(f'int(len(self.map.map_list) / 4) = {int(len(self.map.map_list) / 4)}')
+            # print(f'len(self.map.map_list) = {len(self.map.map_list)}')
+            # print(f'len(self.map.map_list) % 4 = {len(self.map.map_list) % 4}')
+            # print(f'int(len(self.map.map_list) / 4) + len(self.map.map_list) % 4 = {int(len(self.map.map_list) / 4) + len(self.map.map_list) % 4}\n\n')
             map_rect_list = []
             page_rect_list = []
             if len(self.map.map_list) <= 5:
@@ -553,8 +656,8 @@ class App:
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     for r in map_rect_list:
                         if r.collidepoint(event.pos):
-                            self.map.current_map = self.map.map_list[map_rect_list.index(r)]
-                            self.map.load_map(self.map.map_list[map_rect_list.index(r)])
+                            self.map.current_map = self.map.map_list[map_rect_list.index(r)+4*page]
+                            self.map.load_map(self.map.map_list[map_rect_list.index(r)+4*page])
                             self.map.draw_map()
 
                             self.camera_layer = pygame.Surface(self.map.size)
@@ -565,6 +668,7 @@ class App:
                             if pr.collidepoint(event.pos):
                                 page = page_rect_list.index(pr)
             pygame.display.flip()
+            map_rect_list.clear()
         pass
 
     def run(self):
@@ -576,17 +680,17 @@ class App:
                     self.main_menu_run = False
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_UP:
-                        self.player.control(self.direction['JUMP'])
+                        self.player.control(self.direction['JUMP'], self.map)
                     else:
                         self.do_events(event)
 
             key = pygame.key.get_pressed()
             if key[pygame.K_LEFT]:
-                self.player.control(self.direction['LEFT'])
+                self.player.control(self.direction['LEFT'], self.map)
             elif key[pygame.K_RIGHT]:
-                self.player.control(self.direction['RIGHT'])
+                self.player.control(self.direction['RIGHT'], self.map)
             else:
-                self.player.control(self.direction['STOP'])
+                self.player.control(self.direction['STOP'], self.map)
 
             if self.fps_counter:
                 pygame.display.set_caption(f'{App.caption}, FPS = {str(self.clock.get_fps())}')
@@ -625,13 +729,13 @@ class App:
                 message(self.surface, 'Вы прошли игру! Ура=)', SCARLET, point=(self.w / 2, self.h / 3 + 50))
                 msg_boxes.append('END')
             else:
-                msg_boxes.append(message(self.surface, 'ПРОДОЛЖИТЬ', LIGHT_GRAY,
+                msg_boxes.append(message(self.surface, 'продолжить', LIGHT_GRAY,
                                          point=(self.w / 2, self.h / 2 + 0 * 50), collide=True,
                                          collide_keyboard=True if box_number == 0 else False))
-            msg_boxes.append(message(self.surface, 'ВЫБРАТЬ КАРТУ', LIGHT_GRAY,
+            msg_boxes.append(message(self.surface, 'выбрать карту', LIGHT_GRAY,
                                      point=(self.w / 2, self.h / 2 + 1 * 50), collide=True,
                                      collide_keyboard=True if box_number == 1 else False))
-            msg_boxes.append(message(self.surface, 'ВЫЙТИ', LIGHT_GRAY,
+            msg_boxes.append(message(self.surface, 'выйти', LIGHT_GRAY,
                                      point=(self.w / 2, self.h / 2 + 2 * 50), collide=True,
                                      collide_keyboard=True if box_number == 2 else False))
 
@@ -714,8 +818,8 @@ class App:
         if cmd != '':
             try:
                 exec(cmd)
-            except Exception:
-                print(f'cmd error: <{cmd}>')
+            except Exception as e:
+                print(f'cmd error: <{cmd}> with exception <{e}>')
 
     def draw(self):
         self.surface.fill(BLACK)
@@ -724,15 +828,17 @@ class App:
 
         self.map.bonus_draw(self.camera_layer)
         self.map.bonus_keep()
+        self.map.marker_collide()
         self.map.box_draw(self.camera_layer)
+        self.map.marker_draw(self.camera_layer)
 
         self.player.camera_moving(self.surface, self.camera_layer)
 
         rect = pygame.Rect(0, 0, self.w, 50)
         draw_rect_alpha(self.surface, HALF_WHITE, rect)
-        rb = message(self.surface, f'level {self.map.map_list.index(self.map.current_map)}|',
-                     color=BLUE, point=(5, 0), align='topleft')
-        rb = message(self.surface, f'score {self.map.level_score}|', BLUE, point=(rb.right, 0), align='topleft')
+        rb = message(self.surface, f'LEVEL {self.map.map_list.index(self.map.current_map)}|',
+                     color=GREEN, point=(5, 0), align='topleft')
+        rb = message(self.surface, f'SCORE {self.map.level_score}|', GREEN, point=(rb.right, 0), align='topleft')
 
         pygame.display.flip()
 
