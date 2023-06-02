@@ -623,8 +623,9 @@ class App:
                                      collide_keyboard=True if box_number == 2 else False))
 
             for b in msg_boxes:
-                if b.collidepoint(pygame.mouse.get_pos()):
-                    box_number = -1
+                if b != 'END':
+                    if b.collidepoint(pygame.mouse.get_pos()):
+                        box_number = -1
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
