@@ -410,14 +410,15 @@ class App:
             game_start = message(self.surface, 'продолжить' if self.pause else 'начать игру',
                                  point=(self.w / 2, self.h / 2), collide=True,
                                  collide_keyboard=True if box_number == 0 else False)
-            map_select = message(self.surface, 'выбрать карту', point=(self.w / 2, self.h / 2 + 1*50),
+            map_select = message(self.surface, 'выбрать карту', point=(self.w / 2, self.h / 2 + 50),
                                  collide=True, collide_keyboard=True if box_number == 1 else False)
             if self.pause:
-                # restart = message(self.surface, 'перезапустить уровень', point=(self.w / 2, self.h / 2 + 2*50),
-                #                     collide=True, collide_keyboard=True if box_number == 2 else False)
+                restart = message(self.surface, 'перезапустить уровень', point=(self.w / 2, self.h / 2 + 100),
+                                  collide=True, collide_keyboard=True if box_number == 2 else False)
                 pass
-            exit_game = message(self.surface, 'выйти из игры', point=(self.w / 2, self.h / 2 + 2*50),
-                                collide=True, collide_keyboard=True if box_number == 2 else False)
+            exit_game = message(self.surface, 'выйти из игры',
+                                point=(self.w / 2, self.h / 2 + (150 if self.pause else 100)),
+                                collide=True, collide_keyboard=True if box_number == (3 if self.pause else 2) else False)
 
             mp = pygame.mouse.get_pos()
             if (game_start.collidepoint(mp) or
@@ -439,6 +440,12 @@ class App:
                     elif exit_game.collidepoint(event.pos):
                         self.main_menu_run = False
                         self.running = False
+                    elif self.pause and restart.collidepoint(event.pos):
+                        self.map.load_map(self.map.current_map)
+                        self.map.draw_map()
+                        self.pause = False
+                        self.running = True
+                        self.run()
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_RETURN:
                         if box_number == 0 or box_number == -1:
@@ -447,12 +454,18 @@ class App:
                             if not self.pause: self.run()
                         elif box_number == 1:
                             self.map_selection()
-                        elif box_number == 2:
+                        elif self.pause and box_number == 2:
+                            self.map.load_map(self.map.current_map)
+                            self.map.draw_map()
+                            self.pause = False
+                            self.running = True
+                            self.run()
+                        elif box_number == (3 if self.pause else 2):
                             self.main_menu_run = False
                             self.running = False
                     if event.key == pygame.K_UP:
                         if box_number == -1:
-                            box_number = 2
+                            box_number = 3 if self.pause else 2
                         elif box_number == 0:
                             pass
                         else:
@@ -460,7 +473,7 @@ class App:
                     if event.key == pygame.K_DOWN:
                         if box_number == -1:
                             box_number = 0
-                        elif box_number == 2:
+                        elif box_number == (3 if self.pause else 2):
                             pass
                         else:
                             box_number += 1
@@ -657,13 +670,13 @@ class App:
                     if event.key == pygame.K_UP:
                         if box_number == -1:
                             box_number = msg_boxes.index(msg_boxes[-1])
-                        elif box_number == 0:
+                        elif box_number == 1 if self.map.map_list[-1] == self.map.current_map else 0:
                             pass
                         else:
                             box_number -= 1
                     if event.key == pygame.K_DOWN:
                         if box_number == -1:
-                            box_number = 0
+                            box_number = 1 if self.map.map_list[-1] == self.map.current_map else 0
                         elif box_number == msg_boxes.index(msg_boxes[-1]):
                             pass
                         else:
