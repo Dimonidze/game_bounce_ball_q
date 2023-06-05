@@ -31,6 +31,19 @@ SCARLET = (187, 0, 0, 0)
 GOLD = (255, 215, 0, 0)
 GREEN = (50, 205, 50, 0)
 
+# Categories
+cat_red = 0b00001
+cat_blue = 0b00010
+mask_red = 0b00010
+mask_blue = 0b00001
+
+REDMASK = pymunk.ShapeFilter.ALL_MASKS() ^ 1
+BLUEMASK = pymunk.ShapeFilter.ALL_MASKS() ^ 2
+
+ball_layer = 1
+red_ball_layer = 2
+blue_ball_layer = 4
+
 
 def alpha_sort_list(unsorted_list: list) -> list:
     def try_int(symbols):
@@ -129,7 +142,7 @@ class Player:
         self.player.elasticity = self.elasticity
         self.player.color = SCARLET
         self.space.add(self.body, self.player)
-        self.player.filter = pymunk.ShapeFilter(group=1)
+        self.player.filter = pymunk.ShapeFilter(mask=REDMASK)
 
     def control(self, direction, map_c):
         def j():
@@ -248,9 +261,10 @@ class Map:
         self.boxes = []
         self.blue_marker = []
         self.blue_wall = []
+        self.blue_wall_block = []
+        self.red_wall_block = []
         self.red_marker = []
         self.red_wall = []
-        self.player.player.filter = pymunk.ShapeFilter(group=1)
 
         self.level_score = 0
 
@@ -409,14 +423,13 @@ class Map:
             if self.player.player.point_query(m).distance < 1:
                 self.blue_marker.remove(m)
                 self.player.player.color = BLUE
-                self.player.player.filter = pymunk.ShapeFilter(group=2)
-                print(self.player.player.filter)
+                self.player.player.filter = pymunk.ShapeFilter(mask=BLUEMASK)
 
         for m in self.red_marker:
             if self.player.player.point_query(m).distance < 1:
                 self.blue_marker.remove(m)
                 self.player.player.color = BLUE
-                self.player.player.filter = pymunk.ShapeFilter(group=1)
+                self.player.player.filter = pymunk.ShapeFilter(mask=REDMASK)
 
     def color_wall_draw(self):
         for w in self.blue_wall:
@@ -426,11 +439,11 @@ class Map:
                         (x, y + b), (x + b, y + b))
             # body = pymunk.Body()
             rs = pymunk.Poly(self.b0, vertices)
-            # rs.density = 0.01
+            # rs.density = 0.999
             rs.friction = 0.1
-            rs.elasticity = 0.999
+            rs.elasticity = 0.1
             rs.color = BLUE
-            rs.filter = pymunk.ShapeFilter(group=2)
+            rs.filter = pymunk.ShapeFilter(categories=2)
             self.space.add(rs)
             self.blue_wall_block.append(rs)
         for w in self.red_wall:
@@ -440,14 +453,20 @@ class Map:
                         (x, y + b), (x + b, y + b))
             # body = pymunk.Body()
             rs = pymunk.Poly(self.b0, vertices)
-            # rs.density = 0.01
+            # rs.density = 0.999
             rs.friction = 0.1
-            rs.elasticity = 0.999
+            rs.elasticity = 0.1
             rs.color = SCARLET
-            rs.filter = pymunk.ShapeFilter(group=1)
+            rs.filter = pymunk.ShapeFilter(categories=1)
             self.space.add(rs)
             self.red_wall_block.append(rs)
 
+    def pri(self):
+        for f in self.red_wall_block:
+            print(f'red wall: {f.filter}')
+        for f in self.blue_wall_block:
+            print(f'blue wall: {f.filter}')
+        print(f'player: {self.player.player.filter}')
 
 class App:
     screen_size = w, h = (800, 600)
@@ -489,6 +508,7 @@ class App:
             pygame.K_ESCAPE: 'self.running = False; self.pause = True; self.main_menu_run = True',
             pygame.K_F2: 'self.endgame_screen()',
             pygame.K_c: 'self.player.camera_mode = True if not self.player.camera_mode else False',
+            pygame.K_F3: 'self.map.pri()'
         }  # keyboard's shortcut
 
         self.direction = {
