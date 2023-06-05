@@ -1,4 +1,5 @@
 import fnmatch
+import math
 import os
 import re
 import subprocess
@@ -9,6 +10,7 @@ try:
 except ImportError:
     subprocess.run([sys.executable, '-m', 'pip', 'install', '--user', 'pygame'])
     import pygame
+
 try:
     import pymunk
 except ImportError:
@@ -32,17 +34,8 @@ GOLD = (255, 215, 0, 0)
 GREEN = (50, 205, 50, 0)
 
 # Categories
-cat_red = 0b00001
-cat_blue = 0b00010
-mask_red = 0b00010
-mask_blue = 0b00001
-
 REDMASK = pymunk.ShapeFilter.ALL_MASKS() ^ 1
 BLUEMASK = pymunk.ShapeFilter.ALL_MASKS() ^ 2
-
-ball_layer = 1
-red_ball_layer = 2
-blue_ball_layer = 4
 
 
 def alpha_sort_list(unsorted_list: list) -> list:
@@ -427,8 +420,8 @@ class Map:
 
         for m in self.red_marker:
             if self.player.player.point_query(m).distance < 1:
-                self.blue_marker.remove(m)
-                self.player.player.color = BLUE
+                self.red_marker.remove(m)
+                self.player.player.color = SCARLET
                 self.player.player.filter = pymunk.ShapeFilter(mask=REDMASK)
 
     def color_wall_draw(self):
@@ -463,10 +456,11 @@ class Map:
 
     def pri(self):
         for f in self.red_wall_block:
-            print(f'red wall: {f.filter}')
+            print(f'red wall\'s category: {bin(f.filter[1])}')
         for f in self.blue_wall_block:
-            print(f'blue wall: {f.filter}')
-        print(f'player: {self.player.player.filter}')
+            print(f'blue wall\'s category: {bin(f.filter[1])}')
+        print(f'player\'s: {bin(self.player.player.filter[2])}')
+
 
 class App:
     screen_size = w, h = (800, 600)
@@ -603,43 +597,50 @@ class App:
         m_s = True
         page = 0
         box_number = -1
+
+        self.map.map_list = []
+        self.map.load_map_list()
+
         while m_s:
             self.surface.fill(BLACK)
             message(self.surface, f'Текущая карта: {self.map.current_map}',
                     color=BRICK_RED, point=Vec2d(0, 0), align='topleft', font_size=24)
             message(self.surface, 'Bounce Ball Rare', color=BRICK_RED, point=(self.w / 2, self.h / 3))
             y = 0  # number of map on page
-            count_of_page = int(len(self.map.map_list) / 4) + len(self.map.map_list) % 4
-            # print(f'len(self.map.map_list) / 4 = {len(self.map.map_list) / 4}')
-            # print(f'int(len(self.map.map_list) / 4) = {int(len(self.map.map_list) / 4)}')
-            # print(f'len(self.map.map_list) = {len(self.map.map_list)}')
-            # print(f'len(self.map.map_list) % 4 = {len(self.map.map_list) % 4}')
-            # print(f'int(len(self.map.map_list) / 4) + len(self.map.map_list) % 4 = {int(len(self.map.map_list) / 4) + len(self.map.map_list) % 4}\n\n')
+            count_of_page = math.ceil(len(self.map.map_list) / 4)  # int(len(self.map.map_list) / 4) + len(self.map.map_list) % 4
+            print(f'len(self.map.map_list) / 4 = {len(self.map.map_list) / 4}')
+            print(f'int(len(self.map.map_list) / 4) = {int(len(self.map.map_list) / 4)}')
+            print(f'len(self.map.map_list) = {len(self.map.map_list)}')
+            print(f'len(self.map.map_list) % 4 = {len(self.map.map_list) % 4}')
+            print(f'int(len(self.map.map_list) / 4) + len(self.map.map_list) % 4 = {int(len(self.map.map_list) / 4) + len(self.map.map_list) % 4}\n\n')
             map_rect_list = []
             page_rect_list = []
-            if len(self.map.map_list) <= 5:
-                for m in self.map.map_list:
-                    map_rect_list.append(message(self.surface, m, color=LIGHT_GRAY,
-                                                 point=(self.w / 2, self.h / 2 + y * 50),
-                                                 collide=True, collide_keyboard=True if box_number == y else False))
-                    y += 1
-            else:
-                for i in range(count_of_page):
-                    page_rect_list.append(message(self.surface, str(i + 1), color=WHITE,
-                                                  point=(
-                                                  (self.w / 2 - count_of_page / 2 * 50 + 25) + i * 60, self.h - 50),
-                                                  collide_box=True))
-                p = page * 4
-                if 4 + p > len(self.map.map_list):
-                    for m in range(0, abs(len(self.map.map_list) - 4 * (count_of_page - 1))):
-                        map_rect_list.append(message(self.surface, self.map.map_list[m + p], color=LIGHT_GRAY,
-                                                     point=(self.w / 2, self.h / 2 + m * 50),
-                                                     collide=True, collide_keyboard=True if box_number == m else False))
+            try:
+                if len(self.map.map_list) <= 5:
+                    for m in self.map.map_list:
+                        map_rect_list.append(message(self.surface, m, color=LIGHT_GRAY,
+                                                     point=(self.w / 2, self.h / 2 + y * 50),
+                                                     collide=True, collide_keyboard=True if box_number == y else False))
+                        y += 1
                 else:
-                    for m in range(0, 4):
-                        map_rect_list.append(message(self.surface, self.map.map_list[m + p], color=LIGHT_GRAY,
-                                                     point=(self.w / 2, self.h / 2 + m * 50),
-                                                     collide=True, collide_keyboard=True if box_number == m else False))
+                    for i in range(count_of_page):
+                        page_rect_list.append(message(self.surface, str(i + 1), color=WHITE,
+                                                      point=(
+                                                      (self.w / 2 - count_of_page / 2 * 50 + 25) + i * 60, self.h - 50),
+                                                      collide_box=True))
+                    p = page * 4
+                    if 4 + p > len(self.map.map_list):
+                        for m in range(0, abs(len(self.map.map_list) - 4 * (count_of_page - 1))):
+                            map_rect_list.append(message(self.surface, self.map.map_list[m + p], color=LIGHT_GRAY,
+                                                         point=(self.w / 2, self.h / 2 + m * 50),
+                                                         collide=True, collide_keyboard=True if box_number == m else False))
+                    else:
+                        for m in range(0, 4):
+                            map_rect_list.append(message(self.surface, self.map.map_list[m + p], color=LIGHT_GRAY,
+                                                         point=(self.w / 2, self.h / 2 + m * 50),
+                                                         collide=True, collide_keyboard=True if box_number == m else False))
+            except IndexError as e:
+                print(e)
 
             for m in map_rect_list:
                 if m.collidepoint(pygame.mouse.get_pos()):
