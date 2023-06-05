@@ -253,6 +253,7 @@ class Map:
         self.spikes_shapes = []
         self.boxes = []
         self.blue_marker = []
+        self.bonus_list = []
         self.blue_wall = []
         self.blue_wall_block = []
         self.red_wall_block = []
@@ -336,8 +337,8 @@ class Map:
                                 (x, y + self.block_size))
                     shape = pymunk.Poly(self.b0, vertices, radius=0)
                     shape.color = BRICK_RED
-                    shape.density = 0.999
-                    shape.friction = 0.99
+                    # shape.density = 0.999
+                    shape.friction = 0.999
                     shape.elasticity = 0.5
                     self.space.add(shape)
                     Map.shapes.append(shape)
@@ -345,8 +346,11 @@ class Map:
 
         v1, v2 = self.exit_point
         vertices = (
-            (v1 + 3, v2), (v1 + self.block_size - 25, v2 + 10),
-            (v1 + 3, v2 + self.block_size), (v1 + self.block_size - 25, v2 + self.block_size)
+            (v1 + 5, v2 + self.block_size), (v1 + 10, v2 + self.block_size/3),
+            (v1 + self.block_size/2, v2 + self.block_size/5),
+            (v1 + self.block_size - 10, v2 + self.block_size/3), (v1 + self.block_size-5, v2 + self.block_size)
+            # (v1 + 3, v2), (v1 + self.block_size - 25, v2 + 10),
+            # (v1 + 3, v2 + self.block_size), (v1 + self.block_size - 25, v2 + self.block_size)
         )
         self.exit_shape = pymunk.Poly(self.b0, vertices, radius=0)
         self.exit_shape.color = BLUE
@@ -381,9 +385,9 @@ class Map:
 
     def checkpoint(self):
         for c in self.check_points_list:
-            if self.player.player.point_query(c).distance < 1:
+            if self.player.player.point_query(c).distance < 20:
                 self.check_point = c
-                print('checkpoint')
+                print('\ncheckpoint')
 
     def bonus_draw(self, surface: pygame.Surface):
         for b in self.bonus_list:
@@ -430,9 +434,7 @@ class Map:
             b = self.block_size
             vertices = ((x, y),     (x + b, y),
                         (x, y + b), (x + b, y + b))
-            # body = pymunk.Body()
             rs = pymunk.Poly(self.b0, vertices)
-            # rs.density = 0.999
             rs.friction = 0.1
             rs.elasticity = 0.1
             rs.color = BLUE
@@ -444,9 +446,7 @@ class Map:
             b = self.block_size
             vertices = ((x, y), (x + b, y),
                         (x, y + b), (x + b, y + b))
-            # body = pymunk.Body()
             rs = pymunk.Poly(self.b0, vertices)
-            # rs.density = 0.999
             rs.friction = 0.1
             rs.elasticity = 0.1
             rs.color = SCARLET
@@ -502,7 +502,7 @@ class App:
             pygame.K_ESCAPE: 'self.running = False; self.pause = True; self.main_menu_run = True',
             pygame.K_F2: 'self.endgame_screen()',
             pygame.K_c: 'self.player.camera_mode = True if not self.player.camera_mode else False',
-            pygame.K_F3: 'self.map.pri()'
+            pygame.K_F5: 'self.map.pri()'
         }  # keyboard's shortcut
 
         self.direction = {
@@ -594,6 +594,7 @@ class App:
             pass
 
     def map_selection(self):
+        """selecting of map"""
         m_s = True
         page = 0
         box_number = -1
@@ -607,12 +608,7 @@ class App:
                     color=BRICK_RED, point=Vec2d(0, 0), align='topleft', font_size=24)
             message(self.surface, 'Bounce Ball Rare', color=BRICK_RED, point=(self.w / 2, self.h / 3))
             y = 0  # number of map on page
-            count_of_page = math.ceil(len(self.map.map_list) / 4)  # int(len(self.map.map_list) / 4) + len(self.map.map_list) % 4
-            print(f'len(self.map.map_list) / 4 = {len(self.map.map_list) / 4}')
-            print(f'int(len(self.map.map_list) / 4) = {int(len(self.map.map_list) / 4)}')
-            print(f'len(self.map.map_list) = {len(self.map.map_list)}')
-            print(f'len(self.map.map_list) % 4 = {len(self.map.map_list) % 4}')
-            print(f'int(len(self.map.map_list) / 4) + len(self.map.map_list) % 4 = {int(len(self.map.map_list) / 4) + len(self.map.map_list) % 4}\n\n')
+            count_of_page = math.ceil(len(self.map.map_list) / 4)
             map_rect_list = []
             page_rect_list = []
             try:
@@ -734,8 +730,6 @@ class App:
                 self.endgame_screen()
 
     def death(self):
-        # self.map.load_map(self.map.current_map)
-        # self.map.draw_map()
         self.player.body.position = self.map.check_point
 
     def endgame_screen(self):
