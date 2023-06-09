@@ -1,6 +1,7 @@
 import fnmatch
 import math
 import os
+import random
 import re
 import subprocess
 import sys
@@ -29,6 +30,7 @@ GRAY = (128, 128, 128, 0)
 DARK_GRAY = (44, 62, 80, 0)
 BLACK = (0, 0, 0, 0)
 BLUE = (0, 0, 255, 0)
+HALF_BLUE = (0, 0, 255, 0)
 SCARLET = (187, 0, 0, 0)
 GOLD = (255, 215, 0, 0)
 GREEN = (50, 205, 50, 0)
@@ -195,8 +197,9 @@ class Player:
 class Map:
     map = []
     shapes = []
+    wall_rects = []
 
-    def __init__(self, space: pymunk.Space, player: Player, block_size=75):
+    def __init__(self, space: pymunk.Space, player: Player, surface: pygame.Surface, block_size=75):
         self.block_size = block_size
         self.l_x = 0
         self.l_y = 0
@@ -220,10 +223,13 @@ class Map:
         self.load_map_list()
         self.map_rect = pygame.Rect(0, 0, 0, 0)
         self.player = player
+        self.player_rect = pygame.Rect(0, 0, 0, 0)
         self.check_point = (0, 0)
         self.current_map = ''
 
         self.boxes = []
+
+        self.water = []
 
         self.blue_wall = []
         self.blue_wall_block = []
@@ -259,6 +265,7 @@ class Map:
         self.red_wall_block = []
         self.red_marker = []
         self.red_wall = []
+        self.water = []
 
         self.level_score = 0
 
@@ -289,6 +296,7 @@ class Map:
         B — синяя стена
         r — красный маркер
         R — красная стена
+        ~ — вода
         """
         x = int(point[0])
         y = int(point[1])
@@ -312,7 +320,7 @@ class Map:
             self.boxes.append((x * self.block_size, y * self.block_size))
         if Map.map[y][x] == 'b':
             self.blue_marker.append((x * self.block_size + self.block_size / 2,
-                                    y * self.block_size + self.block_size - 15))
+                                     y * self.block_size + self.block_size - 15))
         if Map.map[y][x] == 'B':
             self.blue_wall.append((x * self.block_size, y * self.block_size))
         if Map.map[y][x] == 'r':
@@ -320,9 +328,12 @@ class Map:
                                     y * self.block_size + self.block_size - 15))
         if Map.map[y][x] == 'R':
             self.red_wall.append((x * self.block_size, y * self.block_size))
+        if Map.map[y][x] == '~':
+            self.water.append((x * self.block_size, y * self.block_size))
         return True if Map.map[y][x] == '#' else False
 
     def draw_map(self):
+        """init map's shapes"""
         self.l_x = len(Map.map[0])
         self.l_y = len(Map.map)
         self.size = self.l_x * self.block_size, self.l_y * self.block_size
@@ -331,29 +342,28 @@ class Map:
                 if self.wall_sample_func(point=(i, j)):
                     x = i * self.block_size
                     y = j * self.block_size
-                    vertices = ((x, y),
-                                (x + self.block_size, y),
-                                (x + self.block_size, y + self.block_size),
-                                (x, y + self.block_size))
-                    shape = pymunk.Poly(self.b0, vertices, radius=0)
-                    shape.color = BRICK_RED
-                    # shape.density = 0.999
-                    shape.friction = 0.999
-                    shape.elasticity = 0.5
-                    self.space.add(shape)
-                    Map.shapes.append(shape)
+                    self.wall_rects.append(pygame.Rect(x, y, self.block_size, self.block_size))
+                    # vertices = ((x, y),
+                    #             (x + self.block_size, y),
+                    #             (x + self.block_size, y + self.block_size),
+                    #             (x, y + self.block_size))
+                    # shape = pymunk.Poly(self.b0, vertices, radius=0)
+                    # shape.color = BRICK_RED
+                    # shape.friction = 0.999
+                    # shape.elasticity = 0.5
+                    # self.space.add(shape)
+                    # Map.shapes.append(shape)
         self.map_rect = pygame.Rect(0, 0, self.l_x * self.block_size, self.l_y * self.block_size)
 
         v1, v2 = self.exit_point
         vertices = (
-            (v1 + 5, v2 + self.block_size), (v1 + 10, v2 + self.block_size/3),
-            (v1 + self.block_size/2, v2 + self.block_size/5),
-            (v1 + self.block_size - 10, v2 + self.block_size/3), (v1 + self.block_size-5, v2 + self.block_size)
-            # (v1 + 3, v2), (v1 + self.block_size - 25, v2 + 10),
-            # (v1 + 3, v2 + self.block_size), (v1 + self.block_size - 25, v2 + self.block_size)
+            (v1 + 5, v2 + self.block_size), (v1 + 10, v2 + self.block_size / 3),
+            (v1 + self.block_size / 2, v2 + self.block_size / 5),
+            (v1 + self.block_size - 10, v2 + self.block_size / 3), (v1 + self.block_size - 5, v2 + self.block_size)
         )
         self.exit_shape = pymunk.Poly(self.b0, vertices, radius=0)
-        self.exit_shape.color = BLUE
+        self.exit_shape.color = (random.randrange(0, 200, 4), random.randrange(0, 200, 4),
+                                 random.randrange(24, 255, 8), 255)
         self.exit_shape.density = 0.9999
         self.exit_shape.friction = 0.1
         self.exit_shape.elasticity = 0.1
@@ -373,6 +383,42 @@ class Map:
             self.space.add(shape)
 
         self.color_wall_draw()
+
+    def draw_map_cycle(self, surface: pygame.Surface):
+        shapes = self.shapes
+        # print(len(self.wall_rects))
+        print(len(self.shapes))
+        for w in self.wall_rects:
+            if self.player_rect.colliderect(w):
+                if len(shapes) != 0:
+                    f = True
+                    for s in shapes:
+                        if s.point_query(w.center).distance <= 25:
+                            f = False
+                    if f:
+                        vertices = (w.topleft, w.topright,
+                                    w.bottomleft, w.bottomright)
+                        shape = pymunk.Poly(self.b0, vertices, radius=0)
+                        shape.color = BRICK_RED
+                        shape.friction = 0.999
+                        shape.elasticity = 0.5
+                        self.space.add(shape)
+                        self.shapes.append(shape)
+                else:
+                    vertices = (w.topleft, w.topright,
+                                w.bottomleft, w.bottomright)
+                    shape = pymunk.Poly(self.b0, vertices, radius=0)
+                    shape.color = BRICK_RED
+                    shape.friction = 0.999
+                    shape.elasticity = 0.5
+                    self.space.add(shape)
+                    self.shapes.append(shape)
+            else:
+                pygame.draw.rect(surface, BRICK_RED, w)
+                for s in self.shapes:
+                    if s.point_query(w.center).distance <= 25:
+                        self.shapes.remove(s)
+                        self.space.remove(s)
 
     def map_end(self) -> bool:
         return True if len(self.player.player.shapes_collide(self.exit_shape).points) != 0 else False
@@ -409,6 +455,11 @@ class Map:
             rect = pygame.Rect(vertices[0], vertices[1], self.block_size, self.block_size)
             pygame.draw.rect(surface, DARK_GRAY, rect, 2)
 
+    def water_draw(self, surface: pygame.Surface):
+        for w in self.water:
+            rect = pygame.Rect(w[0], w[1], self.block_size, self.block_size)
+            draw_rect_alpha(surface, HALF_BLUE, rect)
+
     def marker_draw(self, surface: pygame.Surface):
         for m in self.blue_marker:
             pygame.draw.circle(surface, BLUE, m, self.player.radius)
@@ -432,7 +483,7 @@ class Map:
         for w in self.blue_wall:
             x, y = w[0], w[1]
             b = self.block_size
-            vertices = ((x, y),     (x + b, y),
+            vertices = ((x, y), (x + b, y),
                         (x, y + b), (x + b, y + b))
             rs = pymunk.Poly(self.b0, vertices)
             rs.friction = 0.1
@@ -455,11 +506,11 @@ class Map:
             self.red_wall_block.append(rs)
 
     def pri(self):
-        for f in self.red_wall_block:
-            print(f'red wall\'s category: {bin(f.filter[1])}')
-        for f in self.blue_wall_block:
-            print(f'blue wall\'s category: {bin(f.filter[1])}')
-        print(f'player\'s: {bin(self.player.player.filter[2])}')
+        """print service info by F5"""
+        print('\n')
+        print(f'first block coords: {self.shapes[0].body.position}')
+        print(f'distance to first block: {self.player.player.point_query(self.shapes[0].body.position).distance}')
+        """оптимальная дистанция рисования 650 пикселов"""
 
 
 class App:
@@ -479,11 +530,11 @@ class App:
 
         self.player = Player(self.space, block_size=self.block_size)
 
-        self.map = Map(self.space, self.player, self.block_size)
+        self.map = Map(self.space, self.player, self.surface, self.block_size)
         self.map.current_map = self.map.map_list[0]
         self.map.load_map(self.map.map_list[0])
 
-        self.space.gravity = (0, 900)
+        self.space.gravity = (0, 0)  # (0, 900)
         self.fps = 24
         self.fps_counter = False
         self.clock = pygame.time.Clock()
@@ -530,7 +581,8 @@ class App:
                 pass
             exit_game = message(self.surface, 'выйти из игры',
                                 point=(self.w / 2, self.h / 2 + (150 if self.pause else 100)),
-                                collide=True, collide_keyboard=True if box_number == (3 if self.pause else 2) else False)
+                                collide=True,
+                                collide_keyboard=True if box_number == (3 if self.pause else 2) else False)
 
             mp = pygame.mouse.get_pos()
             if (game_start.collidepoint(mp) or
@@ -622,19 +674,22 @@ class App:
                     for i in range(count_of_page):
                         page_rect_list.append(message(self.surface, str(i + 1), color=WHITE,
                                                       point=(
-                                                      (self.w / 2 - count_of_page / 2 * 50 + 25) + i * 60, self.h - 50),
+                                                          (self.w / 2 - count_of_page / 2 * 50 + 25) + i * 60,
+                                                          self.h - 50),
                                                       collide_box=True))
                     p = page * 4
                     if 4 + p > len(self.map.map_list):
                         for m in range(0, abs(len(self.map.map_list) - 4 * (count_of_page - 1))):
                             map_rect_list.append(message(self.surface, self.map.map_list[m + p], color=LIGHT_GRAY,
                                                          point=(self.w / 2, self.h / 2 + m * 50),
-                                                         collide=True, collide_keyboard=True if box_number == m else False))
+                                                         collide=True,
+                                                         collide_keyboard=True if box_number == m else False))
                     else:
                         for m in range(0, 4):
                             map_rect_list.append(message(self.surface, self.map.map_list[m + p], color=LIGHT_GRAY,
                                                          point=(self.w / 2, self.h / 2 + m * 50),
-                                                         collide=True, collide_keyboard=True if box_number == m else False))
+                                                         collide=True,
+                                                         collide_keyboard=True if box_number == m else False))
             except IndexError as e:
                 print(e)
 
@@ -666,6 +721,7 @@ class App:
                         self.map.current_map = self.map.map_list[map_rect_list.index(map_rect_list[box_number])]
                         self.map.load_map(self.map.map_list[map_rect_list.index(map_rect_list[box_number])])
                         self.map.draw_map()
+                        self.camera_layer = pygame.Surface(self.map.size, pygame.DOUBLEBUF)
 
                         self.camera_layer = pygame.Surface(self.map.size)
                         self.draw_option = pymunk.pygame_util.DrawOptions(self.camera_layer)
@@ -673,9 +729,10 @@ class App:
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     for r in map_rect_list:
                         if r.collidepoint(event.pos):
-                            self.map.current_map = self.map.map_list[map_rect_list.index(r)+4*page]
-                            self.map.load_map(self.map.map_list[map_rect_list.index(r)+4*page])
+                            self.map.current_map = self.map.map_list[map_rect_list.index(r) + 4 * page]
+                            self.map.load_map(self.map.map_list[map_rect_list.index(r) + 4 * page])
                             self.map.draw_map()
+                            self.camera_layer = pygame.Surface(self.map.size, pygame.DOUBLEBUF)
 
                             self.camera_layer = pygame.Surface(self.map.size)
                             self.draw_option = pymunk.pygame_util.DrawOptions(self.camera_layer)
@@ -770,6 +827,7 @@ class App:
                             self.map.current_map = self.map.map_list[self.map.map_list.index(self.map.current_map) + 1]
                             self.map.load_map(self.map.current_map)
                             self.map.draw_map()
+                            self.camera_layer = pygame.Surface(self.map.size, pygame.DOUBLEBUF)
 
                             self.camera_layer = pygame.Surface(self.map.size)
                             self.draw_option = pymunk.pygame_util.DrawOptions(self.camera_layer)
@@ -805,6 +863,7 @@ class App:
                         self.map.current_map = self.map.map_list[self.map.map_list.index(self.map.current_map) + 1]
                         self.map.load_map(self.map.current_map)
                         self.map.draw_map()
+                        self.camera_layer = pygame.Surface(self.map.size, pygame.DOUBLEBUF)
 
                         self.camera_layer = pygame.Surface(self.map.size)
                         self.draw_option = pymunk.pygame_util.DrawOptions(self.camera_layer)
@@ -846,7 +905,16 @@ class App:
         self.map.marker_collide()
         self.map.box_draw(self.camera_layer)
         self.map.marker_draw(self.camera_layer)
+        # self.map.water_draw(self.camera_layer)
+        # for w in self.map.water:
+        #     rect = pygame.Rect(w[0], w[1], self.block_size, self.block_size)
+        #     draw_rect_alpha(self.surface, HALF_BLUE, rect)
 
+        p_x, p_y = self.player.body.position
+        self.map.player_rect = pygame.Rect(p_x - self.w / 2 - self.block_size, p_y - self.h / 2 - self.block_size,
+                                           self.w + self.block_size * 2, self.h + self.block_size * 2)
+        # print(self.map.player_rect)
+        self.map.draw_map_cycle(self.camera_layer)
         self.player.camera_moving(self.surface, self.camera_layer)
 
         rect = pygame.Rect(0, 0, self.w, 50)
@@ -854,17 +922,25 @@ class App:
         rb = message(self.surface, f'LEVEL {self.map.map_list.index(self.map.current_map)}|',
                      color=GREEN, point=(5, 0), align='topleft')
         rb = message(self.surface, f'SCORE {self.map.level_score}|', GREEN, point=(rb.right, 0), align='topleft')
+        # print(f'surface rect = {self.surface.get_rect()}')
+        # print(f'camera rect = {self.camera_layer.get_rect()}')
+        # print(f'first shape = {Map.shapes[0].get_vertices()}')
 
         pygame.display.flip()
 
     def init_draw(self):
         self.surface.fill(BLACK)
         self.map.draw_map()
+        self.camera_layer = pygame.Surface(self.map.size, pygame.DOUBLEBUF)
         self.player.rect = pygame.Rect(self.map.exit_point[0], self.map.exit_point[1],
                                        self.map.block_size, self.map.block_size)
-        self.camera_layer = pygame.Surface(self.map.size)
         self.draw_option = pymunk.pygame_util.DrawOptions(self.camera_layer)
         self.space.debug_draw(self.draw_option)
+
+        p_x, p_y = self.player.body.position
+        self.map.player_rect = pygame.Rect(p_x - self.w / 2 - self.block_size, p_y - self.h / 2 - self.block_size,
+                                           self.w + self.block_size * 2, self.h + self.block_size * 2)
+        self.map.draw_map_cycle(self.camera_layer)
 
         pygame.display.flip()
 
