@@ -221,7 +221,7 @@ class Map:
     shapes = []
     wall_rects = []
 
-    def __init__(self, space: pymunk.Space, player: Player, surface: pygame.Surface, block_size=75):
+    def __init__(self, space: pymunk.Space, player: Player, block_size=75):
         self.block_size = block_size
         self.l_x = 0
         self.l_y = 0
@@ -554,7 +554,7 @@ class App:
 
         self.player = Player(self.space, block_size=self.block_size)
 
-        self.map = Map(self.space, self.player, self.surface, self.block_size)
+        self.map = Map(self.space, self.player, self.block_size)
         self.map.current_map = self.map.map_list[0]
         self.map.load_map(self.map.map_list[0])
 
