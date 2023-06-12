@@ -22,18 +22,18 @@ finally:
     import pymunk.pygame_util
 
 # Colors
-BRICK_RED = (170, 74, 68, 0)
-WHITE = (255, 255, 255, 0)
+BRICK_RED = (170, 74, 68, 255)
+WHITE = (255, 255, 255, 255)
 HALF_WHITE = (255, 255, 255, 128)
-LIGHT_GRAY = (211, 211, 211, 0)
-GRAY = (128, 128, 128, 0)
-DARK_GRAY = (44, 62, 80, 0)
-BLACK = (0, 0, 0, 0)
-BLUE = (0, 0, 255, 0)
-HALF_BLUE = (0, 0, 255, 0)
-SCARLET = (187, 0, 0, 0)
-GOLD = (255, 215, 0, 0)
-GREEN = (50, 205, 50, 0)
+LIGHT_GRAY = (211, 211, 211, 255)
+GRAY = (128, 128, 128, 255)
+DARK_GRAY = (44, 62, 80, 255)
+BLACK = (0, 0, 0, 255)
+BLUE = (0, 0, 255, 255)
+HALF_BLUE = (0, 0, 255, 128)
+SCARLET = (187, 0, 0, 255)
+GOLD = (255, 215, 0, 255)
+GREEN = (50, 205, 50, 255)
 
 # Categories
 REDMASK = pymunk.ShapeFilter.ALL_MASKS() ^ 1
@@ -128,6 +128,7 @@ class Player:
         self.space.add(self.motor)
 
         self.fly = False
+        self.inwater = False
 
     def draw(self):
         self.body.position = self.start_position
@@ -158,14 +159,23 @@ class Player:
                 self.motor.rate = 0
             elif direction == 1:
                 """pressed right arrow"""
-                self.motor.rate = -self.velocity
+                if self.inwater:
+                    self.motor.rate = -self.velocity / 2
+                else:
+                    self.motor.rate = -self.velocity
             elif direction == -1:
                 """pressed left arrow"""
-                self.motor.rate = self.velocity
+                if self.inwater:
+                    self.motor.rate = self.velocity / 2
+                else:
+                    self.motor.rate = self.velocity
             if direction == 2:
                 """jump"""
-                self.body.apply_impulse_at_world_point(self.impulse, self.body.position)
-                self.fly = True
+                if self.inwater:
+                    self.body.apply_impulse_at_world_point((self.impulse[0] / 2, self.impulse[1] / 2), self.body.position)
+                else:
+                    self.body.apply_impulse_at_world_point(self.impulse, self.body.position)
+                    self.fly = True
 
         elif self.fly:
             self.motor.rate = -self.motor.rate / 2
@@ -494,6 +504,19 @@ class Map:
             rs.filter = pymunk.ShapeFilter(categories=1)
             self.space.add(rs)
             self.red_wall_block.append(rs)
+
+    def water_collide(self):
+        p = self.player.body.position
+        for w in self.water:
+            rect_w = pygame.Rect(w[0], w[1], self.block_size, self.block_size)
+            rect_p = pygame.Rect(p[0]-self.player.radius, p[1]-self.player.radius,
+                                 self.player.radius*2, self.player.radius*2)
+            if rect_p.colliderect(rect_w):
+                self.player.inwater = True
+                return
+            else:
+                self.player.inwater = False
+
 
     def pri(self):
         """print service info by F5"""
@@ -895,16 +918,14 @@ class App:
         self.map.marker_collide()
         self.map.box_draw(self.camera_layer)
         self.map.marker_draw(self.camera_layer)
-        # self.map.water_draw(self.camera_layer)
-        # for w in self.map.water:
-        #     rect = pygame.Rect(w[0], w[1], self.block_size, self.block_size)
-        #     draw_rect_alpha(self.surface, HALF_BLUE, rect)
+        self.map.water_draw(self.camera_layer)
+        self.map.water_collide()
 
         p_x, p_y = self.player.body.position
         self.map.player_rect = pygame.Rect(p_x - self.block_size, p_y - self.block_size,
                                            self.block_size * 2, self.block_size * 2)
-        # print(self.map.player_rect)
         self.map.draw_map_cycle(self.camera_layer)
+
         self.player.camera_moving(self.surface, self.camera_layer)
 
         rect = pygame.Rect(0, 0, self.w, 50)
