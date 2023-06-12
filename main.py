@@ -153,26 +153,35 @@ class Player:
                     return True
             return False
 
+        def w():
+            if self.inwater:
+                self.space.gravity = (0, 400)
+                return True
+            else:
+                self.space.gravity = (0, 900)
+                return False
+
         if j():
             if direction == 0:
                 """key not pressed"""
                 self.motor.rate = 0
             elif direction == 1:
                 """pressed right arrow"""
-                if self.inwater:
+                if w():
                     self.motor.rate = -self.velocity / 2
                 else:
                     self.motor.rate = -self.velocity
             elif direction == -1:
                 """pressed left arrow"""
-                if self.inwater:
+                if w():
                     self.motor.rate = self.velocity / 2
                 else:
                     self.motor.rate = self.velocity
             if direction == 2:
                 """jump"""
-                if self.inwater:
-                    self.body.apply_impulse_at_world_point((self.impulse[0] / 2, self.impulse[1] / 2), self.body.position)
+                if w():
+                    self.body.apply_impulse_at_world_point((self.impulse[0] / 2, self.impulse[1] / 2),
+                                                           self.body.position)
                 else:
                     self.body.apply_impulse_at_world_point(self.impulse, self.body.position)
                     self.fly = True
@@ -187,6 +196,9 @@ class Player:
             elif direction == -1:
                 """pressed left arrow"""
                 self.body.apply_impulse_at_world_point((-self.velocity * 25, 0), self.body.position)
+            elif direction == 2 and w():
+                self.body.apply_impulse_at_world_point((self.impulse[0] / 2, self.impulse[1] / 2),
+                                                       self.body.position)
 
     def camera_moving(self, surface: pygame.Surface, camera_layer: pygame.Surface):
         """the camera following player"""
@@ -386,7 +398,6 @@ class Map:
 
     def draw_map_cycle(self, surface: pygame.Surface):
         shapes = self.shapes
-        print(len(self.shapes))
         for w in self.wall_rects:
             pygame.draw.rect(surface, BRICK_RED, w)
             pygame.draw.rect(surface, DARK_GRAY, w, 2)
@@ -517,10 +528,10 @@ class Map:
             else:
                 self.player.inwater = False
 
-
     def pri(self):
         """print service info by F5"""
         print('\n')
+        print(f'now draw {len(self.shapes)} shapes')
         print(f'first block coords: {self.shapes[0].body.position}')
         print(f'distance to first block: {self.player.player.point_query(self.shapes[0].body.position).distance}')
         """оптимальная дистанция рисования 650 пикселов"""
