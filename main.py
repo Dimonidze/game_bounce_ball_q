@@ -289,6 +289,7 @@ class Map:
         self.red_wall = []
         self.water = []
         self.wall_rects = []
+        self.check_points_list = []
 
         self.level_score = 0
 
@@ -470,6 +471,22 @@ class Map:
         for w in self.water:
             rect = pygame.Rect(w[0], w[1], self.block_size, self.block_size)
             draw_rect_alpha(surface, HALF_BLUE, rect)
+            for s in self.spikes_points:
+                if rect.collidepoint(s[0], s[1] - 1):
+                    rect = pygame.Rect(s[0], s[1], self.block_size, self.block_size)
+                    draw_rect_alpha(surface, HALF_BLUE, rect)
+
+    def water_collide(self):
+        p = self.player.body.position
+        for w in self.water:
+            rect_w = pygame.Rect(w[0], w[1], self.block_size, self.block_size)
+            rect_p = pygame.Rect(p[0]-self.player.radius, p[1]-self.player.radius,
+                                 self.player.radius*2, self.player.radius*2)
+            if rect_p.colliderect(rect_w):
+                self.player.inwater = True
+                return
+            else:
+                self.player.inwater = False
 
     def marker_draw(self, surface: pygame.Surface):
         for m in self.blue_marker:
@@ -515,18 +532,6 @@ class Map:
             rs.filter = pymunk.ShapeFilter(categories=1)
             self.space.add(rs)
             self.red_wall_block.append(rs)
-
-    def water_collide(self):
-        p = self.player.body.position
-        for w in self.water:
-            rect_w = pygame.Rect(w[0], w[1], self.block_size, self.block_size)
-            rect_p = pygame.Rect(p[0]-self.player.radius, p[1]-self.player.radius,
-                                 self.player.radius*2, self.player.radius*2)
-            if rect_p.colliderect(rect_w):
-                self.player.inwater = True
-                return
-            else:
-                self.player.inwater = False
 
     def pri(self):
         """print service info by F5"""
@@ -591,18 +596,21 @@ class App:
         box_number = -1
         while self.main_menu_run:
             self.surface.fill(BLACK)
+
             message(self.surface, f'Текущая карта: {self.map.current_map}',
                     color=BRICK_RED, point=Vec2d(0, 0), align=('topleft'), font_size=24)
             message(self.surface, f'{self.caption}', color=BRICK_RED, point=(self.w / 2, self.h / 3))
+
             game_start = message(self.surface, 'продолжить' if self.pause else 'начать игру',
                                  point=(self.w / 2, self.h / 2), collide=True,
                                  collide_keyboard=True if box_number == 0 else False)
+
             map_select = message(self.surface, 'выбрать карту', point=(self.w / 2, self.h / 2 + 50),
                                  collide=True, collide_keyboard=True if box_number == 1 else False)
             if self.pause:
                 restart = message(self.surface, 'перезапустить уровень', point=(self.w / 2, self.h / 2 + 100),
                                   collide=True, collide_keyboard=True if box_number == 2 else False)
-                pass
+
             exit_game = message(self.surface, 'выйти из игры',
                                 point=(self.w / 2, self.h / 2 + (150 if self.pause else 100)),
                                 collide=True,
