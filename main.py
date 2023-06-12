@@ -266,6 +266,7 @@ class Map:
         self.red_marker = []
         self.red_wall = []
         self.water = []
+        self.wall_rects = []
 
         self.level_score = 0
 
@@ -343,17 +344,6 @@ class Map:
                     x = i * self.block_size
                     y = j * self.block_size
                     self.wall_rects.append(pygame.Rect(x, y, self.block_size, self.block_size))
-                    # vertices = ((x, y),
-                    #             (x + self.block_size, y),
-                    #             (x + self.block_size, y + self.block_size),
-                    #             (x, y + self.block_size))
-                    # shape = pymunk.Poly(self.b0, vertices, radius=0)
-                    # shape.color = BRICK_RED
-                    # shape.friction = 0.999
-                    # shape.elasticity = 0.5
-                    # self.space.add(shape)
-                    # Map.shapes.append(shape)
-        self.map_rect = pygame.Rect(0, 0, self.l_x * self.block_size, self.l_y * self.block_size)
 
         v1, v2 = self.exit_point
         vertices = (
@@ -386,14 +376,15 @@ class Map:
 
     def draw_map_cycle(self, surface: pygame.Surface):
         shapes = self.shapes
-        # print(len(self.wall_rects))
         print(len(self.shapes))
         for w in self.wall_rects:
+            pygame.draw.rect(surface, BRICK_RED, w)
+            pygame.draw.rect(surface, DARK_GRAY, w, 2)
             if self.player_rect.colliderect(w):
                 if len(shapes) != 0:
                     f = True
                     for s in shapes:
-                        if s.point_query(w.center).distance <= 25:
+                        if s.point_query(w.center).distance < 25:
                             f = False
                     if f:
                         vertices = (w.topleft, w.topright,
@@ -414,9 +405,8 @@ class Map:
                     self.space.add(shape)
                     self.shapes.append(shape)
             else:
-                pygame.draw.rect(surface, BRICK_RED, w)
-                for s in self.shapes:
-                    if s.point_query(w.center).distance <= 25:
+                for s in shapes:
+                    if s.point_query(w.center).distance < 25:
                         self.shapes.remove(s)
                         self.space.remove(s)
 
@@ -534,7 +524,7 @@ class App:
         self.map.current_map = self.map.map_list[0]
         self.map.load_map(self.map.map_list[0])
 
-        self.space.gravity = (0, 0)  # (0, 900)
+        self.space.gravity = (0, 900)
         self.fps = 24
         self.fps_counter = False
         self.clock = pygame.time.Clock()
@@ -911,8 +901,8 @@ class App:
         #     draw_rect_alpha(self.surface, HALF_BLUE, rect)
 
         p_x, p_y = self.player.body.position
-        self.map.player_rect = pygame.Rect(p_x - self.w / 2 - self.block_size, p_y - self.h / 2 - self.block_size,
-                                           self.w + self.block_size * 2, self.h + self.block_size * 2)
+        self.map.player_rect = pygame.Rect(p_x - self.block_size, p_y - self.block_size,
+                                           self.block_size * 2, self.block_size * 2)
         # print(self.map.player_rect)
         self.map.draw_map_cycle(self.camera_layer)
         self.player.camera_moving(self.surface, self.camera_layer)
@@ -938,8 +928,8 @@ class App:
         self.space.debug_draw(self.draw_option)
 
         p_x, p_y = self.player.body.position
-        self.map.player_rect = pygame.Rect(p_x - self.w / 2 - self.block_size, p_y - self.h / 2 - self.block_size,
-                                           self.w + self.block_size * 2, self.h + self.block_size * 2)
+        self.map.player_rect = pygame.Rect(p_x - self.block_size, p_y - self.block_size,
+                                           self.block_size * 2, self.block_size * 2)
         self.map.draw_map_cycle(self.camera_layer)
 
         pygame.display.flip()
