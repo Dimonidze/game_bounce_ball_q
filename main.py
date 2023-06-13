@@ -29,6 +29,7 @@ LIGHT_GRAY = (211, 211, 211, 255)
 GRAY = (128, 128, 128, 255)
 DARK_GRAY = (44, 62, 80, 255)
 BLACK = (0, 0, 0, 255)
+HALF_BLACK = (0, 0, 0, 128)
 BLUE = (0, 0, 255, 255)
 HALF_BLUE = (0, 0, 255, 128)
 SCARLET = (187, 0, 0, 255)
@@ -453,7 +454,7 @@ class Map:
 
     def bonus_keep(self):
         for b in self.bonus_list:
-            if self.player.player.point_query(b).distance < 1:
+            if self.player.player.point_query(b).distance < 10:
                 self.level_score += 1
                 self.bonus_list.remove(b)
 
@@ -564,7 +565,7 @@ class App:
         self.map.load_map(self.map.map_list[0])
 
         self.space.gravity = (0, 900)
-        self.fps = 24
+        self.fps = 25
         self.fps_counter = False
         self.clock = pygame.time.Clock()
 
@@ -948,13 +949,10 @@ class App:
         self.player.camera_moving(self.surface, self.camera_layer)
 
         rect = pygame.Rect(0, 0, self.w, 50)
-        draw_rect_alpha(self.surface, HALF_WHITE, rect)
+        draw_rect_alpha(self.surface, HALF_BLACK, rect)
         rb = message(self.surface, f'LEVEL {self.map.map_list.index(self.map.current_map)}|',
-                     color=GREEN, point=(5, 0), align='topleft')
-        rb = message(self.surface, f'SCORE {self.map.level_score}|', GREEN, point=(rb.right, 0), align='topleft')
-        # print(f'surface rect = {self.surface.get_rect()}')
-        # print(f'camera rect = {self.camera_layer.get_rect()}')
-        # print(f'first shape = {Map.shapes[0].get_vertices()}')
+                     color=GOLD, point=(5, 0), align='topleft')
+        rb = message(self.surface, f'SCORE {self.map.level_score}|', GOLD, point=(rb.right, 0), align='topleft')
 
         pygame.display.flip()
 
