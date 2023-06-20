@@ -537,10 +537,9 @@ class Map:
     def pri(self):
         """print service info by F5"""
         print('\n')
-        print(f'now draw {len(self.shapes)} shapes')
-        print(f'first block coords: {self.shapes[0].body.position}')
+        print(f'now drawing {len(self.shapes)} shapes')
+        print(f'first block coordinates: {self.shapes[0].body.position}')
         print(f'distance to first block: {self.player.player.point_query(self.shapes[0].body.position).distance}')
-        """оптимальная дистанция рисования 650 пикселов"""
 
 
 class App:
